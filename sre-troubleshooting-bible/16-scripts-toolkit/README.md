@@ -36,7 +36,7 @@ Every script in this toolkit follows these conventions:
 
 ```bash
 # Make bash scripts executable
-chmod +x 15-scripts-toolkit/*.sh
+chmod +x 16-scripts-toolkit/*.sh
 
 # Python dependencies (install as needed)
 pip install requests psycopg2-binary  # health_checker, db_connection_pool_monitor

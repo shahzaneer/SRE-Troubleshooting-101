@@ -87,7 +87,7 @@ sudo systemctl restart postgresql
 
 ### 5. Test Your Commands
 
-Don't contribute untested commands or scripts. Every script in 15-scripts-toolkit must:
+Don't contribute untested commands or scripts. Every script in 16-scripts-toolkit must:
 - Use `set -euo pipefail` (Bash) or have proper error handling (Python)
 - Exit with meaningful status codes (0 = healthy, 1 = problem, 2 = usage error)
 - Be runnable from any directory
@@ -152,23 +152,38 @@ sre-troubleshooting-bible/
 ├── 01-linux-debugging/
 ├── 02-networking/
 ├── 03-aws/
-├── 04-kubernetes-containers/
-├── 05-databases/
+├── 04-containers/
+├── 05-kubernetes/
+│   ├── pods/
+│   ├── controllers/
+│   ├── services/
+│   ├── ingress/
+│   ├── networking/
+│   ├── config/
+│   ├── storage/
+│   ├── scheduling/
+│   ├── autoscaling/
+│   ├── security/
+│   ├── probes/
+│   ├── operators/
+│   ├── tooling/
+│   └── operations/
+├── 06-databases/
 │   ├── postgresql/
 │   ├── mysql/
 │   └── redis/
-├── 06-api-troubleshooting/
-├── 07-error-codes/
-├── 08-observability/
-├── 09-performance/
-├── 10-oncall-runbooks/
-├── 11-10x-sre-playbooks/
-├── 12-security-incidents/
-├── 13-ci-cd/
-├── 14-messaging-queues/
+├── 07-api-troubleshooting/
+├── 08-error-codes/
+├── 09-observability/
+├── 10-performance/
+├── 11-oncall-runbooks/
+├── 12-10x-sre-playbooks/
+├── 13-security-incidents/
+├── 14-ci-cd/
+├── 15-messaging-queues/
 │   ├── kafka/
 │   └── sqs/
-├── 15-scripts-toolkit/
+├── 16-scripts-toolkit/
 ├── GLOSSARY.md
 ├── CHANGELOG.md
 └── CONTRIBUTING.md

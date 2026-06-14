@@ -52,5 +52,5 @@ Is there a performance problem?
 
 ---
 
-*Previous Section: [08 — Observability](../08-observability/README.md)*
-*Next Section: [10 — Networking](../../networking/)*
+*Previous Section: [09 — Observability](../09-observability/README.md)*
+*Next Section: [11 — On-Call Runbooks](../11-oncall-runbooks/README.md)*

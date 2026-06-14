@@ -7,7 +7,7 @@ All notable changes to the SRE Troubleshooting Bible are documented here. This p
 ## [1.0.0] - 2026-06-11
 
 ### Added
-- **Initial release of the SRE Troubleshooting Bible** — 20 comprehensive troubleshooting guides organized into 15 sections.
+- **Initial release of the SRE Troubleshooting Bible** — comprehensive troubleshooting guides organized into 17 sections.
 
 ### 00-foundations
 - `README.md`: Section index explaining SRE troubleshooting philosophy
@@ -43,19 +43,39 @@ All notable changes to the SRE Troubleshooting Bible are documented here. This p
 - `cloudwatch-troubleshooting.md`: Log group throttling, metric math, alarm configuration, Logs Insights query optimization
 - `vpc-troubleshooting.md`: NACL vs Security Group, transit gateway routing, VPC endpoint connectivity, NAT gateway issues
 
-### 04-kubernetes-containers
-- `README.md`: Kubernetes section index
-- `kubectl-cheatsheet.md`: Essential kubectl commands organized by category, multi-container debugging, JSONPath recipes
-- `container-debugging.md`: Docker/Podman container inspection, layer debugging, registry authentication, resource constraint debugging
-- `helm-troubleshooting.md`: Helm release failures, template debugging, hook failures, dependency resolution, rollback procedures
+### 04-containers
+- `README.md`: Container troubleshooting section index
+- `container-debugging.md`: Docker/containerd container inspection, exit codes, Dockerfile best practices, nsenter, health check debugging
 
-### 05-databases
+### 05-kubernetes
+- `README.md`: Kubernetes troubleshooting section index with common gotchas
+- `kubectl-cheatsheet.md`: Essential kubectl commands organized by category, multi-container debugging, JSONPath recipes
+- `helm-troubleshooting.md`: Helm release failures, template debugging, hook failures, dependency resolution, rollback procedures
+- `pods/pod-troubleshooting.md`: CrashLoopBackOff, ImagePullBackOff, OOMKilled, Pending, InitContainer failures
+- `controllers/controllers-troubleshooting.md`: Deployments, StatefulSets, DaemonSets, Jobs/CronJobs
+- `services/service-troubleshooting.md`: ClusterIP, NodePort, LoadBalancer, Endpoints, CoreDNS
+- `ingress/ingress-troubleshooting.md`: Ingress controllers, TLS, routing rules, 503 backends
+- `networking/network-policies-troubleshooting.md`: CNI, NetworkPolicies, CoreDNS issues
+- `config/configmaps-secrets-troubleshooting.md`: Mount failures, subPath, secret rotation
+- `storage/storage-troubleshooting.md`: PV/PVC binding, StorageClasses, CSI drivers
+- `scheduling/scheduling-troubleshooting.md`: Taints/Tolerations, Affinity/AntiAffinity, TopologySpread
+- `autoscaling/autoscaling-troubleshooting.md`: HPA, VPA, Cluster Autoscaler
+- `security/security-troubleshooting.md`: RBAC, ServiceAccounts, PodSecurity, ResourceQuotas
+- `probes/probes-troubleshooting.md`: Startup, Readiness, Liveness probes with timing/config patterns
+- `operators/operators-crds-troubleshooting.md`: CRD versioning, operator lifecycle, finalizer issues
+- `tooling/kustomize-troubleshooting.md`: Overlay merging, patching, ConfigMap generators
+- `operations/node-troubleshooting.md`: Node conditions, disk/memory pressure, kubelet issues
+- `operations/etcd-backup-restore.md`: Disaster recovery, snapshot/restore procedures
+- `operations/api-deprecations.md`: Detecting and migrating deprecated APIs
+- `operations/monitoring-logging.md`: Metrics-server, Prometheus health, logging architecture
+
+### 06-databases
 - `README.md`: Databases section index
 - `postgresql/postgresql-troubleshooting.md`: Query performance (EXPLAIN ANALYZE), locking (deadlock detection), replication issues, vacuum troubleshooting
 - `mysql/mysql-troubleshooting.md`: InnoDB locking, replication lag, slow query log analysis, connection pool exhaustion
 - `redis/redis-troubleshooting.md`: Memory eviction policies, persistence issues (RDB/AOF), cluster resharding, latency diagnosis
 
-### 06-api-troubleshooting
+### 07-api-troubleshooting
 - `README.md`: API troubleshooting section index
 - `rest-troubleshooting.md`: HTTP status code diagnosis, serialization errors, CORS issues, rate limiting, content negotiation
 - `graphql-troubleshooting.md`: N+1 query detection, query complexity analysis, subscription connection issues, schema validation
@@ -63,32 +83,32 @@ All notable changes to the SRE Troubleshooting Bible are documented here. This p
 - `websocket-troubleshooting.md`: Connection lifecycle, reconnection strategies, session management, proxy/load balancer configuration
 - `async-api-troubleshooting.md`: Event schema evolution, out-of-order delivery, duplicate processing, dead letter handling
 
-### 07-error-codes
+### 08-error-codes
 - `README.md`: Error codes reference index
 - `http-4xx.md`: Complete HTTP 400-499 error reference with causes, debugging steps, and examples for each code
 - `http-5xx.md`: Complete HTTP 500-599 error reference with causes, debugging steps, and examples for each code
 - `grpc-status-codes.md`: All gRPC status codes with protobuf mappings, when to use each, and debugging approaches
 - `dns-tls-errors.md`: DNS RCODE values, TLS alert codes, common certificate errors with mitigation steps
 
-### 08-observability
+### 09-observability
 - `README.md`: Observability section index
 - `metrics-deep-dive.md`: Prometheus Metric types (counter, gauge, histogram, summary), recording rules, relabeling, remote write, cardinality management
 - `structured-logging.md`: Structured logging patterns in Python/Java/Node.js, log aggregation architecture, sensitive data redaction, log sampling
 - `distributed-tracing.md`: OpenTelemetry instrumentation, span context propagation, sampling strategies (head vs tail), trace-derived metrics
 - `dashboard-design.md`: Dashboard design principles, Grafana panel types, alert-worthy vs informational dashboards, "Four Golden Signals" dashboard template
 
-### 09-performance
+### 10-performance
 - `README.md`: Performance section index
 - `application-profiling.md`: CPU profiling (pprof, async-profiler), memory profiling (heap dumps), flame graph interpretation, allocation tracking
 - `load-testing.md`: k6/JMeter script design, production-like test data, gradual ramp-up profiles, soak testing, spike testing, interpreting results
 - `bottleneck-analysis.md`: Systematic approach to finding bottlenecks — utilization vs saturation vs errors, queueing theory applied to production
 - `caching-strategies.md`: Cache-Aside, Read-Through, Write-Through, Write-Behind patterns, cache invalidation strategies, Redis/Memcached sizing
 
-### 10-oncall-runbooks
+### 11-oncall-runbooks
 - `README.md`: On-call runbooks section index
 - 10 detailed production runbooks covering: disk full, OOM, database connection exhaustion, TLS certificate expiry, Kubernetes node failure, DNS outage, S3 access denied spike, API 5xx spike, Redis memory exhaustion, deployment rollback
 
-### 11-10x-sre-playbooks
+### 12-10x-sre-playbooks
 - `README.md`: Advanced SRE section index
 - `sre-mindset-advanced.md`: Mental models for elite SREs — MTTD minimization, error budget negotiation, toil elimination strategies
 - `advanced-debugging.md`: Advanced strace, eBPF/BCC tools, kernel debugging, crash dump analysis, memory forensics with gdb
@@ -96,23 +116,23 @@ All notable changes to the SRE Troubleshooting Bible are documented here. This p
 - `capacity-planning.md`: Demand forecasting, load prediction models, lead time analysis, cost optimization with reserved capacity
 - `incident-command.md`: Incident Command System (ICS) for SRE, communication templates, stakeholder management, post-incident review facilitation
 
-### 12-security-incidents
+### 13-security-incidents
 - `README.md`: Security incidents section index
 - `auth-breach-response.md`: Credential stuffing detection, immediate response playbook, CloudTrail forensics (S3/Athena queries), IAM credential review and rotation. Python CloudTrail event analyzer. Java Spring Security auth failure listener
 - `secrets-leaked.md`: Secret detection (GitHub Advanced Security, truffleHog, gitleaks, git-secrets), rotation priority matrix (critical/high/medium/low), AWS Secrets Manager rotation, Vault revocation procedures. Python GitHub secret scanner. Bash git-secrets history scan wrapper
 - `dependency-vulnerability.md`: CVE triage framework (CVSS scoring), scanner tools (pip-audit, OWASP Dependency Check, Snyk, Trivy), patch deployment strategies (canary/blue-green/emergency), SBOM generation. Python CVE impact analyzer
 
-### 13-ci-cd
+### 14-ci-cd
 - `README.md`: CI/CD section index
 - `pipeline-failures.md`: Flaky test detection and quarantine process (Python flaky finder), Docker build cache optimization, registry push failure recovery, deployment stuck diagnosis, GitHub Actions and Jenkins specific debugging
 - `deployment-strategies.md`: Blue-Green, Canary, Rolling, Feature Flag strategies with Kubernetes YAML examples, traffic splitting schedules, DB migration compatibility patterns, rollback procedures, comparison table with decision matrix
 
-### 14-messaging-queues
+### 15-messaging-queues
 - `README.md`: Messaging section index
 - `kafka/kafka-troubleshooting.md`: Consumer lag diagnosis, partition leader imbalance (hot-spotting), under-replicated partitions, rebalance storm detection and fix, message size limits, topic retention. Python resilient Kafka consumer with DLQ. Java Kafka consumer with error handling and graceful shutdown
 - `sqs/sqs-troubleshooting.md`: Visibility timeout tuning, DLQ redrive operations, long vs short polling cost analysis, FIFO vs Standard queue selection, message attribute routing. Python SQS consumer with DynamoDB idempotency. Java SQS consumer with visibility extension
 
-### 15-scripts-toolkit
+### 16-scripts-toolkit
 - `README.md`: Scripts toolkit index
 - `health_checker.py`: Multi-endpoint HTTP health checker with retries, exponential backoff, concurrent execution, JSON output
 - `log_analyzer.py`: Nginx/JSON log parser with top IPs, endpoints, status distribution, error rate anomaly detection via standard deviation
@@ -128,8 +148,8 @@ All notable changes to the SRE Troubleshooting Bible are documented here. This p
 - `CONTRIBUTING.md`: Contribution guidelines, standard template, pull request process
 
 ### Structure
-- 15 section directories with README indexes
-- 20 total troubleshooting guides (individual .md files)
+- 17 section directories with README indexes
+- Comprehensive troubleshooting guides (individual .md files)
 - 7 production-ready scripts (4 Python, 3 Bash)
 - Cross-referenced with GitHub Flavored Markdown links between related sections
 - Consistent tagging system (`#security`, `#oncall`, `#kafka`, etc.) for discoverability
