@@ -4,6 +4,8 @@
 > **Last Reviewed:** 2026-06
 > **Tags:** `#linux` `#cpu` `#performance` `#oncall`
 
+> New to CPU? Start with [CPU Fundamentals](cpu-fundamentals.md) — hardware basics, cores vs threads, what the numbers mean, and mpstat column reference.
+
 ---
 
 ## Table of Contents
