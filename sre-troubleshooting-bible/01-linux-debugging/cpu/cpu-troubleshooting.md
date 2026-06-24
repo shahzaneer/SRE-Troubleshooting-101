@@ -249,65 +249,261 @@ bash /tmp/iowait-vs-idle.sh
 
 ## 5. Load Average
 
-### What the Numbers Mean
+### What the Three Numbers Mean
+
+When you see `load average: 2.15, 1.89, 1.56`, these are three **exponentially-damped moving averages** of the number of tasks that were either **running on a CPU (R state)** or **waiting for a CPU or I/O (D state)** — sampled every 5 seconds.
 
 ```bash
-# Current load average
 cat /proc/loadavg
 # 2.15 1.89 1.56 3/1045 29834
-#  ^     ^    ^   ^  ^    ^
-#  |     |    |   |  |    most-recent PID
-#  |     |    |   |  total processes in the system
-#  |     |    |   running processes (currently on CPU)
-#  |     |   15-minute load average
-#  |     5-minute load average
-#  1-minute load average
+#  ^     ^    ^    ^  ^     ^
+#  |     |    |    |  |     most-recent PID allocated
+#  |     |    |    |  total threads/processes in the system
+#  |     |    |    threads currently running (R state, on CPU right now)
+#  |     |    15-minute average
+#  |     5-minute average
+#  1-minute average
 
-# Human-readable with uptime
 uptime
 # 14:23:01 up 45 days,  2:14,  3 users,  load average: 2.15, 1.89, 1.56
 ```
 
-### Interpretation
+### How It Is Calculated (The Kernel Math)
 
-| Load vs CPUs | Meaning |
-|-------------|---------|
-| Load < CPUs | System is underutilized. Processes are not waiting. |
-| Load = CPUs | Saturation point. Every CPU has exactly 1 process. Perfectly utilized. |
-| Load = CPUs + 1-3 | Slightly saturated. Short wait queues. Latency may increase slightly. |
-| Load > CPUs * 2 | Significantly saturated. Long queues forming. Latency will be affected. |
-| Load > CPUs * 10 | Critical saturation. Processes spending more time waiting than running. |
+The kernel samples the number of runnable + uninterruptible tasks every 5 seconds. It feeds each sample into three exponentially-decaying averages with different decay rates. This is NOT a simple rolling average of the last N minutes.
 
-**Key nuance:** Load average counts processes in state R (running/runnable) AND D (uninterruptible sleep — usually stuck in I/O). A process blocked on NFS or a stuck storage device adds to load without using any CPU.
+**The formula the kernel uses:**
 
-### Classic Scenario: Load 32 on 8-Core Machine
+```text
+load_N(t) = load_N(t-1) × e^(-5/N_seconds) + n(t) × (1 - e^(-5/N_seconds))
 
-> An engineer sees `load average: 32.14, 30.22, 25.11` on an 8-core machine. They immediately think "CPU is pegged" but `mpstat` shows 40% idle.
->
-> Upon investigation: a batch job runs 30 worker threads that all do synchronous HTTP calls to a slow downstream API. Each thread spends most of its time sleeping waiting for HTTP responses (S state) — these sleeping threads do NOT count toward load average. But the threads become RUNNABLE simultaneously when responses arrive, and all 30 compete for 8 CPUs. The run queue depth is ~22 processes waiting for CPU.
->
-> The actual CPU isn't pegged because each thread's on-CPU time is tiny — just enough to process the HTTP response and issue the next request. But the context-switch rate is astronomical.
+Where:
+  n(t)          = number of tasks in R or D state at this 5-second sample
+  N_seconds     = 60 (1-min), 300 (5-min), or 900 (15-min)
+  e             = Euler's number ≈ 2.71828
+```
 
-### Diagnostic Commands
+**The decay constants baked into the kernel:**
+
+```text
+1-minute  average:  e^(-5/60)  ≈ 0.9200  → each new sample contributes ~8% weight
+5-minute  average:  e^(-5/300) ≈ 0.9835  → each new sample contributes ~1.65% weight
+15-minute average:  e^(-5/900) ≈ 0.9945  → each new sample contributes ~0.55% weight
+```
+
+**What this means in practice:**
+
+```text
+           │  New sample   │  Old average   │  Reacts to changes
+           │  weight       │  retained      │
+───────────┼───────────────┼────────────────┼─────────────────────
+1-min      │    8.0%       │    92.0%       │  Fast — sees spikes within 30s
+5-min      │    1.65%      │    98.35%      │  Medium — takes ~2 min to catch up
+15-min     │    0.55%      │    99.45%      │  Slow — takes ~5 min to reflect changes
+
+A single 5-second spike of 100 runnable tasks on an otherwise-idle system:
+  - 1-min average jumps by: 100 × 0.08 = 8.0  (reacts immediately)
+  - 5-min average jumps by: 100 × 0.0165 = 1.65 (barely moves)
+  - 15-min average jumps by: 100 × 0.0055 = 0.55 (almost invisible)
+```
+
+### What Exactly Is Being Counted?
+
+Not all processes — only these two task states:
+
+| State | Letter | Counted? | What It Means |
+|-------|--------|----------|---------------|
+| **Running** | R | **YES** | Actively executing on a CPU — consuming cycles |
+| **Runnable** | R | **YES** | Ready to run, waiting in the queue for a free CPU — THIS IS THE WAIT QUEUE |
+| **Uninterruptible Sleep** | D | **YES** | Blocked in a kernel call, typically waiting for disk I/O, NFS response, or a stuck device |
+| **Interruptible Sleep** | S | NO | Sleeping, waiting for an event (timer, network, signal) — most idle processes |
+| **Stopped** | T | NO | Paused by SIGSTOP or debugger |
+| **Zombie** | Z | NO | Process exited, parent hasn't called wait() |
+
+**This is why load average is NOT a CPU metric.** A process blocked on a hung NFS mount (D state) adds 1 to the load but uses zero CPU. A machine with a stuck SAN volume can show load 50+ while `mpstat` shows 99% idle.
+
+### Reading the Three Numbers Together
+
+The three numbers tell you a STORY over time. Their relationship reveals the TREND:
+
+```text
+load average: 2.15, 1.89, 1.56
+
+Pattern analysis:
+  2.15 (1m) > 1.89 (5m) > 1.56 (15m)  → INCREASING trend.
+  The system is getting BUSIER. Workload is ramping up.
+
+load average: 1.56, 1.89, 2.15
+
+  1.56 (1m) < 1.89 (5m) < 2.15 (15m) → DECREASING trend.
+  A spike happened recently and it's settling down. The 1m already dropped.
+
+load average: 4.20, 4.18, 4.21
+
+  All three nearly EQUAL → STEADY state.
+  The workload has been constant for at least 15 minutes.
+```
+
+### The Load ÷ CPUs Ratio — What You Can Actually Infer
 
 ```bash
-# Add this to your top workflow:
-# While top is running, press '1' to see per-CPU breakdown
-# Check "load average" in the top-right corner
+# Calculate load-to-CPU ratio
+nproc                     # number of logical CPUs
+# 8
 
-# Run queue depth (processes in R state — actually waiting for CPU)
-vmstat 1 5 | awk 'NR>2 {print "r:", $1, "b:", $2}'
-# 'r' column is processes waiting for CPU (run queue)
-# 'b' column is processes in uninterruptible sleep (usually I/O)
+# 1-minute ratio: 2.15 / 8 = 0.27  → 27% loaded
+# 5-minute ratio: 1.89 / 8 = 0.24  → 24% loaded
+```
 
-# Context switch rate
-vmstat 1 5 | awk 'NR>2 {print "cs:", $12}'
-# Very high (>100k/s) with high load + low CPU = many short-lived, I/O-bound threads
+| Load ÷ CPUs | What's Happening | Symptom |
+|-------------|-----------------|---------|
+| **0.00 – 0.70** | Headroom available. No process ever waits. | Normal. Everything responsive. |
+| **0.70 – 1.00** | Approaching saturation. Processes rarely queue but may occasionally. | Still fine. Latency spikes may appear briefly. |
+| **1.00 – 2.00** | Mild overload. On average, 1 process is waiting per core. | p95 latency begins rising. Context switches increase. |
+| **2.00 – 5.00** | Significant overload. Queue is steadily >1 deep per core. | Users notice slowness. CPU-bound work is delayed. |
+| **5.00+** | Severe overload. Processes spend more time waiting than running. | System feels unresponsive. Scheduler thrashing. |
 
-# Check how many processes are actually running vs blocked
-ps -eo state | sort | uniq -c | sort -rn
-# High 'R' count + high load = actual CPU contention
-# High 'S' count + high load = mostly sleeping, load inflated by D-state processes
+**The critical rule:** You only have a CPU problem when load ÷ CPU > 1 **AND** `%usr + %sys` is high (check `mpstat`). If load is 12 on a 4-core machine but CPU is 30% idle, the load is coming from D-state processes, not CPU pressure.
+
+### Concrete Scenario: "load average: 2.15, 1.89, 1.56" on an 8-Core Box
+
+```text
+What you know instantly:
+  1. Load 2.15 ÷ 8 cores = 0.27   → 27% loaded. This is NOT a CPU problem.
+  2. 2.15 > 1.89 > 1.56           → Load is INCREASING slowly.
+  3. At 27% load, processes are NOT queuing for CPU. All runnable
+     tasks get a core immediately.
+  4. If you're seeing latency issues, they are NOT from CPU saturation.
+     Look at I/O, network, or application-level blocking.
+
+What it would take to worry on this machine:
+  Load 8.0 on 8 cores = ratio 1.0 → saturation point.
+  Load 16.0 on 8 cores = ratio 2.0 → every core has 1 runner + 1 waiter.
+  Load 80.0 on 8 cores = ratio 10 → critical, call the on-call.
+
+But even then — check mpstat FIRST. If all 8 cores show 95% idle
+while load is 80, you have 80 threads stuck in D state waiting on
+a broken NFS mount. Killing processes won't help. Fix the storage.
+```
+
+### Scenario: Load 0.80 on a 1-Core VM — This Looks Fine, Right?
+
+```text
+An SRE sees load 0.80 on a single-core t2.micro. "Below 1.0, no problem."
+But the app's p99 latency is 3x normal.
+
+load 0.80 on 1 core means the CPU is busy 80% of the time on average.
+But the average hides the variance:
+
+Reality: The app handles HTTP requests. Each request takes ~20ms of CPU.
+         Requests arrive in bursts of 3–4 simultaneously every 100ms.
+         When 3 requests arrive at once, CPU can only handle one.
+         The other 2 queue up → they wait ~40ms extra → p99 shoots up.
+
+mpstat 1 60 would reveal:
+  CPU 0:  %usr spikes to 100% for 60ms every ~100ms, then drops to 0%.
+  Average over 60s: 80% — but the latency damage is done during those spikes.
+
+The problem: load average smooths out the bursts. It tells you average
+demand, not peak demand. For latency-sensitive workloads, burst depth
+matters more than average load.
+
+Use this instead to see bursts:
+  vmstat 1 | awk '{if($1>1) print "QUEUE:", $1, "at", strftime("%H:%M:%S")}'
+  # Shows moments when run queue depth exceeds 1 — your burst indicator.
+```
+
+### What's NOT Counted (And Why That Matters)
+
+```text
+NOT counted in load:
+  - Threads sleeping in S state (waiting for a timer, network packet, mutex)
+    → If your app has 500 threads waiting on a database connection pool,
+      load average does NOT reflect this! They're in S state.
+  - Threads blocked on user-space locks (futex with timeout)
+    → If a Java app has 200 threads waiting on a synchronized block,
+      load does NOT show this. Use jstack to see blocked threads.
+  - I/O wait at the application level (async I/O, epoll, select)
+    → Node.js event loop waiting for a DB query: zero load impact.
+
+This means load average can look PERFECT while your system is falling apart:
+  - 500 threads waiting on an exhausted DB connection pool → load = 0
+  - API server with all threads in epoll_wait → load = 0
+  - App deadlocked on a mutex → load = 0
+
+LOAD AVERAGE IS NOT A HEALTH CHECK. It's just one signal.
+Always cross-reference with: mpstat (CPU usage), vmstat (r/b queues),
+iostat (disk), and application-level metrics (request latency, queue depth).
+```
+
+### Practical Diagnostic Flow
+
+```bash
+# Step 1: Get the numbers and thread count
+cat /proc/loadavg
+# 2.15 1.89 1.56 3/1045 29834
+#                   ^^^^^
+#                   3 threads ON CPU right now (truly running)
+#                   1045 total threads in existence
+
+# If running/total is 3/1045: only 3 of 1045 threads are on CPU.
+# The other 1042 are sleeping (S state), waiting (D state), or runnable (R).
+
+# Step 2: What's the load-to-CPU ratio?
+echo "scale=2; $(awk '{print $1}' /proc/loadavg) / $(nproc)" | bc
+# 0.27 ← not a CPU problem
+
+# Step 3: Is the load from CPU pressure or D-state processes?
+vmstat 1 5
+# procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+#  r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+#  3  0      0  2.1G  450M  3.2G     0    0    12    45  500  800 24  8 68  0  0
+#  ^  ^
+#  r = runnable (R state) — processes in the CPU queue. If r > nproc → CPU contention.
+#  b = blocked (D state)  — processes stuck in I/O. If b is high → storage/device issue.
+
+# If "r" is high AND CPU usage is high → genuine CPU overload. Add cores or optimize.
+# If "b" is high AND CPU is idle → storage problem. Check iostat, NFS, SAN.
+# If both "r" AND "b" are low but load is high → load must have dropped recently
+#   (the exponential average hasn't decayed yet — check 15-min value).
+
+# Step 4: What's the burst depth?
+vmstat 1 | awk '$1+0>c{print "PEAK r=" $1 ", b=" $2}' c=$(nproc)
+# Shows seconds where run queue exceeds CPU count — your CPU bursts.
+
+# Step 5: Are there D-state processes dragging the load?
+ps -eo state,pid,wchan,comm | awk '$1=="D"'
+# D  12345  nfs_wait_on_rpc  myapp
+# D  12346  blk_mq_submit_bio  postgres
+# If you see D-state processes, the load is I/O-driven, not CPU-driven.
+# Check wchan (wait channel) to see what kernel function they're stuck in.
+```
+
+### Why the 15-Minute Average Matters
+
+```text
+The 15-minute average is your "is there a long-running issue?" indicator.
+
+Scenario: You wake up to an alert. You check:
+  load average: 1.23, 6.89, 8.45
+
+  1.23 (1m)  ← load has ALREADY RESOLVED. The event is over.
+  6.89 (5m)  ← load was high ~2-5 minutes ago.
+  8.45 (15m) ← load was HIGH for at least 15 minutes.
+
+The 15-minute average at 8.45 means there was a sustained problem.
+Even though it's resolved NOW, the past 15 minutes saw significant load.
+This tells you: "this was a real incident, not a momentary blip."
+
+Reverse scenario:
+  load average: 8.45, 1.89, 0.56
+
+  8.45 (1m)  ← something JUST happened. Machines are on fire RIGHT NOW.
+  1.89 (5m)  ← this started 2-3 minutes ago.
+  0.56 (15m) ← 15 minutes ago, everything was fine.
+
+This is a brand-new incident. The 15m is low because the spike hasn't
+propagated through the slow exponential average yet. ACT FAST.
 ```
 
 ---
